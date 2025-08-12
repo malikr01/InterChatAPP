@@ -56,6 +56,8 @@ dependencies {
     // Material Icons Extended (şifre alanındaki ikonlar vs. için)
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.7.7")
     // Testler
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
