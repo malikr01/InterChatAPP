@@ -50,17 +50,17 @@ fun AppNav() {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // ✅ DataStore + Repo
-    val store = remember { com.example.interchat.data.CredentialsStore(ctx) }
+    // DataStore + Repo
+    val store    = remember { com.example.interchat.data.CredentialsStore(ctx) }
     val authRepo = remember { com.example.interchat.data.MockAuthRepository(store) }
     val loginUC  = remember { LoginWithTcUseCase(authRepo) }
 
-    // ✅ Kayıtlı TC/şifreyi oku (auto‑fill)
-    val savedPair by store.credentials.collectAsState(initial = Pair<String?, String?>(null, null))
-    val prefillTc = savedPair.first
-    val prefillPass = savedPair.second
+    // Auto-fill / auto-login → REMEMBER alanı
+    val remembered by store.remembered.collectAsState(initial = null to null)
+    val prefillTc = remembered.first
+    val prefillPass = remembered.second
 
-    // ✅ Bottom bar (Tools kaldırıldı)
+    // Bottom bar
     val bottomItems = listOf(
         BottomItem(Routes.HOME, "Ana Sayfa") { Icon(Icons.Outlined.Home, null) },
         BottomItem(Routes.ACCOUNTS, "Hesaplar") { Icon(Icons.Outlined.AccountCircle, null) },
@@ -96,7 +96,7 @@ fun AppNav() {
     ) { inner ->
         NavHost(
             navController = nav,
-            startDestination = Routes.LOGIN,
+            startDestination = if (prefillTc != null && prefillPass != null) Routes.HOME else Routes.LOGIN,
             modifier = Modifier.padding(inner)
         ) {
             /* ---------- AUTH ---------- */
@@ -106,16 +106,12 @@ fun AppNav() {
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
                                 is R.Ok -> {
-                                    // “Beni hatırla”
-                                    if (remember) store.saveCredentials(tc, pass) else store.clear()
-
+                                    if (remember) store.saveRemember(tc, pass) else store.clearRemember()
                                     nav.navigate(Routes.HOME) {
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                     }
                                 }
-                                is R.Err -> {
-                                    Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
-                                }
+                                is R.Err -> Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -127,7 +123,18 @@ fun AppNav() {
             }
 
             /* ---------- TABS ---------- */
-            composable(Routes.HOME) { HomeScreen() }
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onLogout = {
+                        scope.launch {
+                            store.clearRemember() // sadece remember temizlensin
+                            nav.navigate(Routes.LOGIN) {
+                                popUpTo(Routes.HOME) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
 
             composable(Routes.ACCOUNTS) {
                 AccountsScreen(
@@ -136,7 +143,12 @@ fun AppNav() {
                 )
             }
 
-            composable(Routes.CHAT_AI) { ChatAIScreen() }
+            // 🔹 ChatAI: canlı desteğe yönlendirme burada
+            composable(Routes.CHAT_AI) {
+                ChatAIScreen(
+                    onConnectLiveSupport = { nav.navigate(Routes.FAQ) } // istersen SUPPORT rotasına götür
+                )
+            }
 
             composable(Routes.TRANSACTIONS_HOME) {
                 TransactionsHomeScreen(
@@ -160,11 +172,9 @@ fun AppNav() {
                             when (val r = authRepo.register(tc, pass)) {
                                 is R.Ok -> {
                                     Toast.makeText(ctx, "Kayıt tamamlandı", Toast.LENGTH_SHORT).show()
-                                    nav.popBackStack() // Login'e geri
+                                    nav.popBackStack()
                                 }
-                                is R.Err -> {
-                                    Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
-                                }
+                                is R.Err -> Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -176,15 +186,15 @@ fun AppNav() {
                     onBack = { nav.popBackStack() },
                     onDone = {
                         scope.launch {
-                            store.clear()
-                            Toast.makeText(ctx, "Kayıt silindi (mock sıfırlama)", Toast.LENGTH_SHORT).show()
+                            store.clearRemember()
+                            Toast.makeText(ctx, "Mock temizlendi", Toast.LENGTH_SHORT).show()
                             nav.popBackStack()
                         }
                     }
                 )
             }
 
-            /* ---------- PERSONAL INFO (opsiyonel) ---------- */
+            /* ---------- PERSONAL INFO ---------- */
             composable(Routes.PERSONAL_INFO) {
                 PersonalInfoScreen(
                     onOpenBalance = { nav.navigate(Routes.BALANCE) },
@@ -209,13 +219,6 @@ fun AppNav() {
             composable(Routes.CARD_DETAIL) {
                 CardDetailScreen(onBack = { nav.popBackStack() })
             }
-
-            /* ---------- TRANSACTIONS SUB PAGES ---------- */
-            composable(Routes.TX_TRANSFER)  { TransferScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.TX_BILL)      { BillPaymentScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.TX_TOPUP)     { TopUpScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.TX_SCHEDULED) { ScheduledPaymentsScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.TX_HISTORY)   { TransactionHistoryScreen(onBack = { nav.popBackStack() }) }
 
             /* ---------- TRANSACTIONS > CALCULATORS ---------- */
             composable(Routes.TX_CALCULATORS) {
