@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/interchat/data/MockAuthRepository.kt
 package com.example.interchat.data
 
 import com.example.interchat.domain.AuthRepository
@@ -6,7 +5,6 @@ import com.example.interchat.domain.R
 import com.example.interchat.domain.User
 import com.example.interchat.domain.isValidTc
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 
 class MockAuthRepository(
     private val store: CredentialsStore
@@ -16,18 +14,18 @@ class MockAuthRepository(
     private var currentUser: User? = null
 
     override suspend fun register(tc: String, password: String): R<Unit> {
-        delay(300) // simulate network
-        store.saveCredentials(tc, password) // ✅ burada save değil saveCredentials
+        delay(300)
+        // ✅ Artık kayıtlı hesabı kalıcı alana yazıyoruz
+        store.saveRegistered(tc, password)
         return R.Ok(Unit)
     }
-
 
     override suspend fun loginWithTc(tc: String, password: String): R<User> {
         delay(250)
         if (!tc.isValidTc()) return R.Err("TC 11 haneli olmalı ve 0 ile başlamamalı.")
         if (password.length < 4) return R.Err("Şifre en az 4 karakter olmalı.")
 
-        val (savedTc, savedPass) = store.credentials.first()
+        val (savedTc, savedPass) = store.getRegisteredOnce()
         if (savedTc == null || savedPass == null) {
             return R.Err("Kayıtlı kullanıcı bulunamadı. Lütfen önce kayıt olun.")
         }
