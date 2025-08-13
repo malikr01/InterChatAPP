@@ -53,7 +53,8 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .background(Color(0xFFF5F5F5))
+            .padding(12.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -62,21 +63,21 @@ fun LoginScreen(
         Image(
             painter = painterResource(id = R.drawable.logo_interchat),
             contentDescription = "InterChat Logo",
-            modifier = Modifier.size(96.dp)
+            modifier = Modifier.size(300.dp)
         )
         Spacer(Modifier.height(12.dp))
 
         // Başlık
-        Text(
-            text = "InterChat",
-            style = TextStyle(
-                fontSize = 40.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF6146E5)
-            ),
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(4.dp))
+        /* Text(
+             text = "InterChat",
+             style = TextStyle(
+                 fontSize = 70.sp,
+                 fontWeight = FontWeight.ExtraBold,
+                 color = Color(0xFF6146E5)
+             ),
+             textAlign = TextAlign.Center
+         )
+        */ Spacer(Modifier.height(4.dp))
         Text(
             text = "Hoş geldin! Devam etmek için giriş yap.",
             style = MaterialTheme.typography.bodyMedium,
@@ -149,7 +150,7 @@ fun LoginScreen(
 
         // Kayıt ol yönlendirme
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Hesabın yok mu? ")
+            Text("onurcan yok mu ? ")
             Text(
                 text = "Kayıt ol",
                 color = MaterialTheme.colorScheme.primary,
@@ -158,18 +159,18 @@ fun LoginScreen(
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(70.dp))
 
         // (Opsiyonel) Google ile devam et
-        OutlinedButton(
-            onClick = { /* TODO: Google Sign-In */ },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text("Google ile devam et")
-        }
-    }
+        /*  OutlinedButton(
+              onClick = { /* TODO: Google Sign-In */ },
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(16.dp)
+          ) {
+              Text("Google ile devam et")
+        */  }
 }
+
 
 @Composable
 fun GradientButton(

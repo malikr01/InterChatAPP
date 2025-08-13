@@ -46,7 +46,7 @@ fun HomeRootScreen( // ← adı HomeRootScreen
                 onOpenCardDetail = { onOpenCardDetail() }
             )
             "transactions" -> Surface(Modifier.padding(p)) { Text("İşlemler (yakında)") }
-            "faq" -> Surface(Modifier.padding(p)) { Text("SSS (yakında)") }
+            "faq" -> Surface(Modifier.padding(p)) { FaqScreen() }
         }
     }
 }
