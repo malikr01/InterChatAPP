@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-// --- Ortak üst bar + geri butonu (bu dosyada tekrar tanımlıyoruz)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TxScaffold(
@@ -53,14 +52,16 @@ fun TransactionsHomeScreen(
     onBill: () -> Unit,
     onTopUp: () -> Unit,
     onScheduled: () -> Unit,
-    onHistory: () -> Unit
+    onHistory: () -> Unit,
+    onCalculations: () -> Unit      // ✅ Hesaplamalar için eklendi
 ) {
     TxScaffold(title = "İşlemler") {
-        Button(onClick = onTransfer, modifier = Modifier.fillMaxWidth()) { Text("Hızlı Transfer") }
-        Button(onClick = onBill,     modifier = Modifier.fillMaxWidth()) { Text("Fatura Öde") }
-        Button(onClick = onTopUp,    modifier = Modifier.fillMaxWidth()) { Text("TL Yükle") }
-        Button(onClick = onScheduled,modifier = Modifier.fillMaxWidth()) { Text("Planlı Ödemeler") }
-        Button(onClick = onHistory,  modifier = Modifier.fillMaxWidth()) { Text("İşlem Geçmişi") }
+        Button(onClick = onTransfer,     modifier = Modifier.fillMaxWidth()) { Text("Hızlı Transfer") }
+        Button(onClick = onBill,         modifier = Modifier.fillMaxWidth()) { Text("Fatura Öde") }
+        Button(onClick = onTopUp,        modifier = Modifier.fillMaxWidth()) { Text("TL Yükle") }
+        Button(onClick = onScheduled,    modifier = Modifier.fillMaxWidth()) { Text("Planlı Ödemeler") }
+        Button(onClick = onHistory,      modifier = Modifier.fillMaxWidth()) { Text("İşlem Geçmişi") }
+        Button(onClick = onCalculations, modifier = Modifier.fillMaxWidth()) { Text("Hesaplamalar") } // ✅ yeni
     }
 }
 
@@ -80,8 +81,8 @@ fun TransferScreen(onBack: () -> Unit) {
         OutlinedTextField(note,  { note = it },  label = { Text("Açıklama (ops)") }, modifier = Modifier.fillMaxWidth())
         Button(
             onClick = {
-                // basit validasyon (placeholder)
-                info = if (iban.length in 20..34 && amount.isNotBlank()) "Transfer talebi alındı." else "Lütfen IBAN ve tutarı kontrol edin."
+                info = if (iban.length in 20..34 && amount.isNotBlank())
+                    "Transfer talebi alındı." else "Lütfen IBAN ve tutarı kontrol edin."
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Gönder") }

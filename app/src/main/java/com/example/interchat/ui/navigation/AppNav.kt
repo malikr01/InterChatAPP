@@ -1,153 +1,175 @@
 package com.example.interchat.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.HelpCenter
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ListAlt
+import androidx.compose.material.icons.outlined.SmartToy // Eğer çözülmezse: değiştir -> outlined.Android
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.interchat.ui.screens.BalanceScreen
-import com.example.interchat.ui.screens.BillPaymentScreen
-import com.example.interchat.ui.screens.CardInfoScreen
-import com.example.interchat.ui.screens.LoginScreen
-import com.example.interchat.ui.screens.PersonalInfoScreen
-import com.example.interchat.ui.screens.RecentOpsScreen
-import com.example.interchat.ui.screens.ScheduledPaymentsScreen
-import com.example.interchat.ui.screens.TopUpScreen
-import com.example.interchat.ui.screens.TransactionHistoryScreen
-import com.example.interchat.ui.screens.TransactionsHomeScreen
-import com.example.interchat.ui.screens.TransactionsScreen
-import com.example.interchat.ui.screens.TransferScreen
+import androidx.navigation.navArgument
+import com.example.interchat.ui.screens.*
 
+private data class BottomItem(
+    val route: String,
+    val label: String,
+    val icon: @Composable () -> Unit
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot() {
+fun AppNav() {
     val nav = rememberNavController()
 
-    NavHost(
-        navController = nav,
-        startDestination = Routes.LOGIN
-    ) {
-        // 1) LOGIN — projenizdeki imzaya göre: onLogin(email, password), diğerleri opsiyonel
-        composable(Routes.LOGIN) {
-            LoginScreen(
-                onLogin = { email, password ->
-                    nav.navigate(Routes.TABS_ACCOUNTS) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-                onSignUpClick = { /* opsiyonel */ },
-                onForgotClick = { /* opsiyonel */ }
-            )
-        }
-
-        // 2) 4'lü alt bar için shell entry point'ler
-        composable(Routes.TABS_CHAT)         { TabShell(startRoute = Routes.TABS_CHAT) }
-        composable(Routes.TABS_ACCOUNTS)     { TabShell(startRoute = Routes.TABS_ACCOUNTS) }
-        composable(Routes.TABS_TRANSACTIONS) { TabShell(startRoute = Routes.TABS_TRANSACTIONS) }
-        composable(Routes.TABS_FAQ)          { TabShell(startRoute = Routes.TABS_FAQ) }
-    }
-}
-
-@Composable
-private fun TabShell(startRoute: String) {
-    val tabsNav = rememberNavController()
+    // Sıra: 2 solda (Home, Accounts) + ORTA (ChatAI) + 2 sağda (Transactions, FAQ)
+    val bottomItems = listOf(
+        BottomItem(Routes.HOME, "Ana Sayfa") { Icon(Icons.Outlined.Home, null) },
+        BottomItem(Routes.ACCOUNTS, "Hesaplar") { Icon(Icons.Outlined.AccountCircle, null) },
+        BottomItem(Routes.CHAT_AI, "ChatAI") { Icon(Icons.Outlined.SmartToy, null) }, // ikon hata verirse SmartToy importunu Android ile değiştir
+        BottomItem(Routes.TRANSACTIONS_HOME, "İşlemler") { Icon(Icons.Outlined.ListAlt, null) },
+        BottomItem(Routes.FAQ, "SSS") { Icon(Icons.Outlined.HelpCenter, null) },
+    )
+    val bottomRoutes = bottomItems.map { it.route }
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val backstack by tabsNav.currentBackStackEntryAsState()
-                val current = backstack?.destination?.route.orEmpty()
-                listOf(
-                    Routes.TABS_CHAT         to "Chat",
-                    Routes.TABS_ACCOUNTS     to "Hesaplar",
-                    Routes.TABS_TRANSACTIONS to "İşlemler",
-                    Routes.TABS_FAQ          to "SSS"
-                ).forEach { (route, label) ->
-                    NavigationBarItem(
-                        selected = current.startsWith(route),
-                        onClick = {
-                            tabsNav.navigate(route) {
-                                popUpTo(tabsNav.graph.startDestinationId) { inclusive = false }
-                                launchSingleTop = true
-                            }
-                        },
-                        icon = { },
-                        label = { Text(label) }
-                    )
+            val backStackEntry by nav.currentBackStackEntryAsState()
+            val current = backStackEntry?.destination?.route
+            if (current in bottomRoutes) {
+                NavigationBar {
+                    bottomItems.forEach { item ->
+                        NavigationBarItem(
+                            selected = current == item.route,
+                            onClick = {
+                                nav.navigate(item.route) {
+                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = item.icon,
+                            label = { Text(item.label) }
+                        )
+                    }
                 }
             }
         }
-    ) { pad ->
+    ) { inner ->
         NavHost(
-            navController = tabsNav,
-            startDestination = startRoute,
-            modifier = Modifier.padding(pad)
+            navController = nav,
+            startDestination = Routes.LOGIN,
+            modifier = Modifier.padding(inner)
         ) {
-            // TAB 1: Chat – HomeScreen yoksa basit placeholder metin
-            composable(Routes.TABS_CHAT) {
-                Text("Chat", style = MaterialTheme.typography.headlineSmall)
+            /* ----- AUTH ----- */
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    onLogin = { _, _ ->
+                        nav.navigate(Routes.HOME) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onSignUpClick = { /* kayıt ekranına yönlendirme */ },
+                    onForgotClick = { /* şifre sıfırlama ekranına yönlendirme */ }
+                )
             }
 
-            // TAB 2: Hesaplar – menü + alt sayfalar
-            addAccountsGraph(tabsNav)
+            /* ----- TABS ----- */
+            composable(Routes.HOME) { HomeScreen() }
 
-            // TAB 3: İşlemler – detaylı alt grafik
-            addTransactionsGraph(tabsNav)
+            composable(Routes.ACCOUNTS) {
+                AccountsScreen(
+                    onAccountClick = { id -> nav.navigate(Routes.accountDetail(id)) },
+                    onOpenCardDetail = { nav.navigate(Routes.CARD_DETAIL) }
+                )
+            }
 
-            // TAB 4: SSS – placeholder
-            composable(Routes.TABS_FAQ) {
-                Text("SSS", style = MaterialTheme.typography.headlineSmall)
+            // ORTA: ChatAI
+            composable(Routes.CHAT_AI) { ChatAIScreen() }
+
+            // İşlemler ana menüsü
+            composable(Routes.TRANSACTIONS_HOME) {
+                TransactionsHomeScreen(
+                    onTransfer     = { nav.navigate(Routes.TX_TRANSFER) },
+                    onBill         = { nav.navigate(Routes.TX_BILL) },
+                    onTopUp        = { nav.navigate(Routes.TX_TOPUP) },
+                    onScheduled    = { nav.navigate(Routes.TX_SCHEDULED) },
+                    onHistory      = { nav.navigate(Routes.TX_HISTORY) },
+                    onCalculations = { nav.navigate(Routes.TX_CALCULATORS) }
+                )
+            }
+
+            composable(Routes.FAQ) { FaqScreen() }
+
+            /* ----- PERSONAL INFO (opsiyonel) ----- */
+            composable(Routes.PERSONAL_INFO) {
+                PersonalInfoScreen(
+                    onOpenBalance = { nav.navigate(Routes.BALANCE) },
+                    onOpenTx      = { nav.navigate(Routes.TX_LIST) },
+                    onOpenCard    = { nav.navigate(Routes.CARD_INFO) },
+                    onOpenRecent  = { nav.navigate(Routes.RECENT_OPS) }
+                )
+            }
+            composable(Routes.BALANCE)    { BalanceScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_LIST)    { TransactionsScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.CARD_INFO)  { CardInfoScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.RECENT_OPS) { RecentOpsScreen(onBack = { nav.popBackStack() }) }
+
+            /* ----- ACCOUNT / CARD DETAILS ----- */
+            composable(
+                route = Routes.ACCOUNT_DETAIL_ROUTE,
+                arguments = listOf(navArgument(Routes.ARG_ID) { type = NavType.StringType })
+            ) { backStack ->
+                val id = backStack.arguments?.getString(Routes.ARG_ID).orEmpty()
+                AccountDetailScreen(accountId = id, onBack = { nav.popBackStack() })
+            }
+            composable(Routes.CARD_DETAIL) {
+                CardDetailScreen(onBack = { nav.popBackStack() })
+            }
+
+            /* ----- TRANSACTIONS SUB PAGES ----- */
+            composable(Routes.TX_TRANSFER)  { TransferScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_BILL)      { BillPaymentScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_TOPUP)     { TopUpScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_SCHEDULED) { ScheduledPaymentsScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_HISTORY)   { TransactionHistoryScreen(onBack = { nav.popBackStack() }) }
+
+            /* ----- TRANSACTIONS > HESAPLAMALAR ----- */
+            composable(Routes.TX_CALCULATORS) {
+                androidx.compose.material3.Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("Hesaplamalar") },
+                            navigationIcon = {
+                                IconButton(onClick = { nav.popBackStack() }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                            }
+                        )
+                    }
+                ) { pad ->
+                    Box(Modifier.padding(pad)) {
+                        FinancialCalculationsScreen()
+                    }
+                }
             }
         }
     }
-}
-
-/* ---------- Hesaplar Sekmesi Grafiği ---------- */
-
-private fun NavGraphBuilder.addAccountsGraph(tabsNav: NavHostController) {
-    // Hesaplar ana sayfası: kişisel menü (4 buton)
-    composable(Routes.TABS_ACCOUNTS) {
-        PersonalInfoScreen(
-            onOpenBalance = { tabsNav.navigate(Routes.BALANCE) },
-            onOpenTx      = { tabsNav.navigate(Routes.TX) },
-            onOpenCard    = { tabsNav.navigate(Routes.CARD) },
-            onOpenRecent  = { tabsNav.navigate(Routes.RECENT) }
-        )
-    }
-    // Alt sayfalar (geri = navigateUp)
-    composable(Routes.BALANCE) { BalanceScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.TX)      { TransactionsScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.CARD)    { CardInfoScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.RECENT)  { RecentOpsScreen(onBack = { tabsNav.navigateUp() }) }
-}
-
-/* ---------- İşlemler Sekmesi Grafiği ---------- */
-
-private fun NavGraphBuilder.addTransactionsGraph(tabsNav: NavHostController) {
-    // İşlemler ana menü
-    composable(Routes.TABS_TRANSACTIONS) {
-        TransactionsHomeScreen(
-            onTransfer  = { tabsNav.navigate(Routes.TX_TRANSFER) },
-            onBill      = { tabsNav.navigate(Routes.TX_BILL) },
-            onTopUp     = { tabsNav.navigate(Routes.TX_TOPUP) },
-            onScheduled = { tabsNav.navigate(Routes.TX_SCHEDULED) },
-            onHistory   = { tabsNav.navigate(Routes.TX_HISTORY) }
-        )
-    }
-    // Alt sayfalar (geri = navigateUp)
-    composable(Routes.TX_TRANSFER)  { TransferScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.TX_BILL)      { BillPaymentScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.TX_TOPUP)     { TopUpScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.TX_SCHEDULED) { ScheduledPaymentsScreen(onBack = { tabsNav.navigateUp() }) }
-    composable(Routes.TX_HISTORY)   { TransactionHistoryScreen(onBack = { tabsNav.navigateUp() }) }
 }
