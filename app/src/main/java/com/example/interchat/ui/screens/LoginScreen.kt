@@ -68,18 +68,6 @@ fun LoginScreen(
         Spacer(Modifier.height(12.dp))
 
         // Başlık
-<<<<<<< HEAD
-       /* Text(
-            text = "InterChat",
-            style = TextStyle(
-                fontSize = 70.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF6146E5)
-            ),
-            textAlign = TextAlign.Center
-        )
-       */ Spacer(Modifier.height(4.dp))
-=======
         /* Text(
              text = "InterChat",
              style = TextStyle(
@@ -90,7 +78,6 @@ fun LoginScreen(
              textAlign = TextAlign.Center
          )
         */ Spacer(Modifier.height(4.dp))
->>>>>>> ef3e457 (commit deneme mesajıdır onurcan xx)
         Text(
             text = "Hoş geldin! Devam etmek için giriş yap.",
             style = MaterialTheme.typography.bodyMedium,
@@ -163,11 +150,7 @@ fun LoginScreen(
 
         // Kayıt ol yönlendirme
         Row(verticalAlignment = Alignment.CenterVertically) {
-<<<<<<< HEAD
-            Text("Hesabın yok mu ? ")
-=======
             Text("onurcan yok mu ? ")
->>>>>>> ef3e457 (commit deneme mesajıdır onurcan xx)
             Text(
                 text = "Kayıt ol",
                 color = MaterialTheme.colorScheme.primary,
@@ -179,17 +162,6 @@ fun LoginScreen(
         Spacer(Modifier.height(70.dp))
 
         // (Opsiyonel) Google ile devam et
-<<<<<<< HEAD
-      /*  OutlinedButton(
-            onClick = { /* TODO: Google Sign-In */ },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text("Google ile devam et")
-      */  }
-    }
-
-=======
         /*  OutlinedButton(
               onClick = { /* TODO: Google Sign-In */ },
               modifier = Modifier.fillMaxWidth(),
@@ -198,7 +170,6 @@ fun LoginScreen(
               Text("Google ile devam et")
         */  }
 }
->>>>>>> ef3e457 (commit deneme mesajıdır onurcan xx)
 
 
 @Composable
