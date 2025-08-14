@@ -37,11 +37,16 @@ import com.example.interchat.domain.R
 import com.example.interchat.ui.screens.*
 import kotlinx.coroutines.launch
 
+private const val ROUTE_CALC_LOAN = "loan_calculator"
+
 private data class BottomItem(
     val route: String,
     val label: String,
     val icon: @Composable () -> Unit
 )
+
+// 🔹 Yeni: Faiz hesap ekranı için lokal route
+private const val ROUTE_CALC_FAIZ = "calc_faiz"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +65,7 @@ fun AppNav() {
     val prefillTc = savedPair.first
     val prefillPass = savedPair.second
 
-    // ✅ Bottom bar (Tools kaldırıldı)
+    // ✅ Bottom bar
     val bottomItems = listOf(
         BottomItem(Routes.HOME, "Ana Sayfa") { Icon(Icons.Outlined.Home, null) },
         BottomItem(Routes.ACCOUNTS, "Hesaplar") { Icon(Icons.Outlined.AccountCircle, null) },
@@ -106,9 +111,7 @@ fun AppNav() {
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
                                 is R.Ok -> {
-                                    // “Beni hatırla”
                                     if (remember) store.saveCredentials(tc, pass) else store.clear()
-
                                     nav.navigate(Routes.HOME) {
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                     }
@@ -160,7 +163,7 @@ fun AppNav() {
                             when (val r = authRepo.register(tc, pass)) {
                                 is R.Ok -> {
                                     Toast.makeText(ctx, "Kayıt tamamlandı", Toast.LENGTH_SHORT).show()
-                                    nav.popBackStack() // Login'e geri
+                                    nav.popBackStack()
                                 }
                                 is R.Err -> {
                                     Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
@@ -232,10 +235,21 @@ fun AppNav() {
                     }
                 ) { pad ->
                     Box(Modifier.padding(pad)) {
-                        FinancialCalculationsScreen()
+                        FinancialCalculationsScreen(
+                            onLoanCalcClick = { nav.navigate(ROUTE_CALC_LOAN) },
+                            onPlanClick     = { /* nav.navigate("calc_kredi_plan") */ },
+                            onInvestClick   = { /* nav.navigate("calc_yatirim") */ },
+                            onFxClick       = { /* nav.navigate("calc_doviz") */ }
+                        )
                     }
                 }
             }
+
+
+            // 🔹 Yeni: Kredi Faiz Hesaplama ekranını NavHost'a ekledik
+            composable(ROUTE_CALC_LOAN) { KrediFaizHesaplamaScreen (onBack = { nav.popBackStack() }) }
+
+
         }
     }
 }
