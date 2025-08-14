@@ -37,11 +37,16 @@ import com.example.interchat.domain.R
 import com.example.interchat.ui.screens.*
 import kotlinx.coroutines.launch
 
+private const val ROUTE_CALC_LOAN = "loan_calculator"
+
 private data class BottomItem(
     val route: String,
     val label: String,
     val icon: @Composable () -> Unit
 )
+
+// 🔹 Yeni: Faiz hesap ekranı için lokal route
+private const val ROUTE_CALC_FAIZ = "calc_faiz"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,17 +55,17 @@ fun AppNav() {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // DataStore + Repo
-    val store    = remember { com.example.interchat.data.CredentialsStore(ctx) }
+    // ✅ DataStore + Repo
+    val store = remember { com.example.interchat.data.CredentialsStore(ctx) }
     val authRepo = remember { com.example.interchat.data.MockAuthRepository(store) }
     val loginUC  = remember { LoginWithTcUseCase(authRepo) }
 
-    // Auto-fill / auto-login → REMEMBER alanı
-    val remembered by store.remembered.collectAsState(initial = null to null)
-    val prefillTc = remembered.first
-    val prefillPass = remembered.second
+    // ✅ Kayıtlı TC/şifreyi oku (auto‑fill)
+    val savedPair by store.credentials.collectAsState(initial = Pair<String?, String?>(null, null))
+    val prefillTc = savedPair.first
+    val prefillPass = savedPair.second
 
-    // Bottom bar
+    // ✅ Bottom bar
     val bottomItems = listOf(
         BottomItem(Routes.HOME, "Ana Sayfa") { Icon(Icons.Outlined.Home, null) },
         BottomItem(Routes.ACCOUNTS, "Hesaplar") { Icon(Icons.Outlined.AccountCircle, null) },
@@ -96,7 +101,7 @@ fun AppNav() {
     ) { inner ->
         NavHost(
             navController = nav,
-            startDestination = if (prefillTc != null && prefillPass != null) Routes.HOME else Routes.LOGIN,
+            startDestination = Routes.LOGIN,
             modifier = Modifier.padding(inner)
         ) {
             /* ---------- AUTH ---------- */
@@ -106,12 +111,14 @@ fun AppNav() {
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
                                 is R.Ok -> {
-                                    if (remember) store.saveRemember(tc, pass) else store.clearRemember()
+                                    if (remember) store.saveCredentials(tc, pass) else store.clear()
                                     nav.navigate(Routes.HOME) {
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                     }
                                 }
-                                is R.Err -> Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
+                                is R.Err -> {
+                                    Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     },
@@ -123,18 +130,7 @@ fun AppNav() {
             }
 
             /* ---------- TABS ---------- */
-            composable(Routes.HOME) {
-                HomeScreen(
-                    onLogout = {
-                        scope.launch {
-                            store.clearRemember() // sadece remember temizlensin
-                            nav.navigate(Routes.LOGIN) {
-                                popUpTo(Routes.HOME) { inclusive = true }
-                            }
-                        }
-                    }
-                )
-            }
+            composable(Routes.HOME) { HomeScreen() }
 
             composable(Routes.ACCOUNTS) {
                 AccountsScreen(
@@ -143,12 +139,7 @@ fun AppNav() {
                 )
             }
 
-            // 🔹 ChatAI: canlı desteğe yönlendirme burada
-            composable(Routes.CHAT_AI) {
-                ChatAIScreen(
-                    onConnectLiveSupport = { nav.navigate(Routes.FAQ) } // istersen SUPPORT rotasına götür
-                )
-            }
+            composable(Routes.CHAT_AI) { ChatAIScreen() }
 
             composable(Routes.TRANSACTIONS_HOME) {
                 TransactionsHomeScreen(
@@ -174,7 +165,9 @@ fun AppNav() {
                                     Toast.makeText(ctx, "Kayıt tamamlandı", Toast.LENGTH_SHORT).show()
                                     nav.popBackStack()
                                 }
-                                is R.Err -> Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
+                                is R.Err -> {
+                                    Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     }
@@ -186,15 +179,15 @@ fun AppNav() {
                     onBack = { nav.popBackStack() },
                     onDone = {
                         scope.launch {
-                            store.clearRemember()
-                            Toast.makeText(ctx, "Mock temizlendi", Toast.LENGTH_SHORT).show()
+                            store.clear()
+                            Toast.makeText(ctx, "Kayıt silindi (mock sıfırlama)", Toast.LENGTH_SHORT).show()
                             nav.popBackStack()
                         }
                     }
                 )
             }
 
-            /* ---------- PERSONAL INFO ---------- */
+            /* ---------- PERSONAL INFO (opsiyonel) ---------- */
             composable(Routes.PERSONAL_INFO) {
                 PersonalInfoScreen(
                     onOpenBalance = { nav.navigate(Routes.BALANCE) },
@@ -220,6 +213,13 @@ fun AppNav() {
                 CardDetailScreen(onBack = { nav.popBackStack() })
             }
 
+            /* ---------- TRANSACTIONS SUB PAGES ---------- */
+            composable(Routes.TX_TRANSFER)  { TransferScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_BILL)      { BillPaymentScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_TOPUP)     { TopUpScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_SCHEDULED) { ScheduledPaymentsScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TX_HISTORY)   { TransactionHistoryScreen(onBack = { nav.popBackStack() }) }
+
             /* ---------- TRANSACTIONS > CALCULATORS ---------- */
             composable(Routes.TX_CALCULATORS) {
                 androidx.compose.material3.Scaffold(
@@ -235,10 +235,21 @@ fun AppNav() {
                     }
                 ) { pad ->
                     Box(Modifier.padding(pad)) {
-                        FinancialCalculationsScreen()
+                        FinancialCalculationsScreen(
+                            onLoanCalcClick = { nav.navigate(ROUTE_CALC_LOAN) },
+                            onPlanClick     = { /* nav.navigate("calc_kredi_plan") */ },
+                            onInvestClick   = { /* nav.navigate("calc_yatirim") */ },
+                            onFxClick       = { /* nav.navigate("calc_doviz") */ }
+                        )
                     }
                 }
             }
+
+
+            // 🔹 Yeni: Kredi Faiz Hesaplama ekranını NavHost'a ekledik
+            composable(ROUTE_CALC_LOAN) { KrediFaizHesaplamaScreen (onBack = { nav.popBackStack() }) }
+
+
         }
     }
 }
