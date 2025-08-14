@@ -13,7 +13,7 @@ data class FaqItem(val question: String, val answer: String)
 
 private val faqList = listOf(
     FaqItem("Kart borcumu nereden öderim?", "İşlemler > Fatura Öde menüsünden."),
-    FaqItem("Hesap hareketleri nerede?", "Kişisel Bilgi > Hesap Hareketleri ekranında."),
+    FaqItem("Kredi faiz hesaplamalarını nerden yapabilirim?", " İşlemler > Hesaplamalar > Faiz hesaplamaları menüsünden."),
     FaqItem("IBAN’ımı nereden görürüm?", "Hesaplar > Hesap Detayı ekranında IBAN yer alır."),
     FaqItem("Şifremi unuttum, ne yapmalıyım?", "Giriş ekranındaki ‘Şifremi Unuttum’ bağlantısından yeni şifre oluşturabilirsin.")
 )
