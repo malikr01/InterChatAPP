@@ -20,8 +20,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -37,16 +35,14 @@ import com.example.interchat.domain.R
 import com.example.interchat.ui.screens.*
 import kotlinx.coroutines.launch
 
-private const val ROUTE_CALC_LOAN = "loan_calculator"
-
 private data class BottomItem(
     val route: String,
     val label: String,
     val icon: @Composable () -> Unit
 )
 
-// 🔹 Yeni: Faiz hesap ekranı için lokal route
-private const val ROUTE_CALC_FAIZ = "calc_faiz"
+// Kredi faiz hesaplama ekranı için lokal route
+private const val ROUTE_CALC_LOAN = "loan_calculator"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,17 +51,11 @@ fun AppNav() {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // ✅ DataStore + Repo
-    val store = remember { com.example.interchat.data.CredentialsStore(ctx) }
+    // Repo (auto-fill/remember kullanmıyoruz → CredentialsStore API farklarını dert etmeyelim)
+    val store    = remember { com.example.interchat.data.CredentialsStore(ctx) }
     val authRepo = remember { com.example.interchat.data.MockAuthRepository(store) }
     val loginUC  = remember { LoginWithTcUseCase(authRepo) }
 
-    // ✅ Kayıtlı TC/şifreyi oku (auto‑fill)
-    val savedPair by store.credentials.collectAsState(initial = Pair<String?, String?>(null, null))
-    val prefillTc = savedPair.first
-    val prefillPass = savedPair.second
-
-    // ✅ Bottom bar
     val bottomItems = listOf(
         BottomItem(Routes.HOME, "Ana Sayfa") { Icon(Icons.Outlined.Home, null) },
         BottomItem(Routes.ACCOUNTS, "Hesaplar") { Icon(Icons.Outlined.AccountCircle, null) },
@@ -77,8 +67,8 @@ fun AppNav() {
 
     Scaffold(
         bottomBar = {
-            val backStackEntry by nav.currentBackStackEntryAsState()
-            val current = backStackEntry?.destination?.route
+            val backStackEntry = nav.currentBackStackEntryAsState()
+            val current = backStackEntry.value?.destination?.route
             if (current in bottomRoutes) {
                 NavigationBar {
                     bottomItems.forEach { item ->
@@ -107,11 +97,10 @@ fun AppNav() {
             /* ---------- AUTH ---------- */
             composable(Routes.LOGIN) {
                 LoginScreen(
-                    onLogin = { tc, pass, remember ->
+                    onLogin = { tc, pass, _ ->
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
                                 is R.Ok -> {
-                                    if (remember) store.saveCredentials(tc, pass) else store.clear()
                                     nav.navigate(Routes.HOME) {
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                     }
@@ -124,8 +113,8 @@ fun AppNav() {
                     },
                     onSignUpClick = { nav.navigate(Routes.REGISTER) },
                     onForgotClick = { nav.navigate(Routes.FORGOT) },
-                    prefillTc = prefillTc,
-                    prefillPassword = prefillPass
+                    prefillTc = null,
+                    prefillPassword = null
                 )
             }
 
@@ -178,11 +167,8 @@ fun AppNav() {
                 ForgotPasswordScreen(
                     onBack = { nav.popBackStack() },
                     onDone = {
-                        scope.launch {
-                            store.clear()
-                            Toast.makeText(ctx, "Kayıt silindi (mock sıfırlama)", Toast.LENGTH_SHORT).show()
-                            nav.popBackStack()
-                        }
+                        Toast.makeText(ctx, "Mock sıfırlama", Toast.LENGTH_SHORT).show()
+                        nav.popBackStack()
                     }
                 )
             }
@@ -245,11 +231,10 @@ fun AppNav() {
                 }
             }
 
-
-            // 🔹 Yeni: Kredi Faiz Hesaplama ekranını NavHost'a ekledik
-            composable(ROUTE_CALC_LOAN) { KrediFaizHesaplamaScreen (onBack = { nav.popBackStack() }) }
-
-
+            // Kredi Faiz Hesaplama ekranı
+            composable(ROUTE_CALC_LOAN) {
+                KrediFaizHesaplamaScreen(onBack = { nav.popBackStack() })
+            }
         }
     }
 }
