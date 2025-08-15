@@ -45,7 +45,7 @@ fun HomeScreen(
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text("Hoş geldin! (Home)")
+            Text("Hoş geldin! (çok yakında)")
         }
     }
 }
