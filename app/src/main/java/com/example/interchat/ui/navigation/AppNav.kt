@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/interchat/ui/navigation/AppNav.kt
 package com.example.interchat.ui.navigation
 
 import android.widget.Toast
@@ -41,8 +40,10 @@ private data class BottomItem(
     val icon: @Composable () -> Unit
 )
 
-// Kredi faiz hesaplama ekranı için lokal route
 private const val ROUTE_CALC_LOAN = "loan_calculator"
+private const val ROUTE_PLANS     = "odeme_planlari"
+// ✅ Yeni: Portföy Simülasyonu ekranı
+private const val ROUTE_INVEST    = "invest_sim"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +52,6 @@ fun AppNav() {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
-    // Repo (auto-fill/remember kullanmıyoruz → CredentialsStore API farklarını dert etmeyelim)
     val store    = remember { com.example.interchat.data.CredentialsStore(ctx) }
     val authRepo = remember { com.example.interchat.data.MockAuthRepository(store) }
     val loginUC  = remember { LoginWithTcUseCase(authRepo) }
@@ -100,14 +100,10 @@ fun AppNav() {
                     onLogin = { tc, pass, _ ->
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
-                                is R.Ok -> {
-                                    nav.navigate(Routes.HOME) {
-                                        popUpTo(Routes.LOGIN) { inclusive = true }
-                                    }
+                                is R.Ok -> nav.navigate(Routes.HOME) {
+                                    popUpTo(Routes.LOGIN) { inclusive = true }
                                 }
-                                is R.Err -> {
-                                    Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
-                                }
+                                is R.Err -> Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -154,9 +150,7 @@ fun AppNav() {
                                     Toast.makeText(ctx, "Kayıt tamamlandı", Toast.LENGTH_SHORT).show()
                                     nav.popBackStack()
                                 }
-                                is R.Err -> {
-                                    Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
-                                }
+                                is R.Err -> Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -223,8 +217,8 @@ fun AppNav() {
                     Box(Modifier.padding(pad)) {
                         FinancialCalculationsScreen(
                             onLoanCalcClick = { nav.navigate(ROUTE_CALC_LOAN) },
-                            onPlanClick     = { /* nav.navigate("calc_kredi_plan") */ },
-                            onInvestClick   = { /* nav.navigate("calc_yatirim") */ },
+                            onPlanClick     = { nav.navigate(ROUTE_PLANS) },
+                            onInvestClick   = { nav.navigate(ROUTE_INVEST) }, // ✅ burada bağlandı
                             onFxClick       = { /* nav.navigate("calc_doviz") */ }
                         )
                     }
@@ -234,6 +228,16 @@ fun AppNav() {
             // Kredi Faiz Hesaplama ekranı
             composable(ROUTE_CALC_LOAN) {
                 KrediFaizHesaplamaScreen(onBack = { nav.popBackStack() })
+            }
+
+            // Ödeme Planları ekranı
+            composable(ROUTE_PLANS) {
+                OdemePlanlariScreen(onBack = { nav.popBackStack() })
+            }
+
+            // ✅ Portföy Simülasyonu ekranı
+            composable(ROUTE_INVEST) {
+                PortfoySimulasyonScreen(onBack = { nav.popBackStack() })
             }
         }
     }
