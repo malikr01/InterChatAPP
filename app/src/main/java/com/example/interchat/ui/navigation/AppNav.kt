@@ -2,6 +2,9 @@ package com.example.interchat.ui.navigation
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,8 +47,8 @@ private data class BottomItem(
 
 private const val ROUTE_CALC_LOAN = "loan_calculator"
 private const val ROUTE_PLANS     = "odeme_planlari"
-// ✅ Yeni: Portföy Simülasyonu ekranı
 private const val ROUTE_INVEST    = "invest_sim"
+private const val ROUTE_FX        = "calc_doviz"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,19 +96,32 @@ fun AppNav() {
     ) { inner ->
         NavHost(
             navController = nav,
-            startDestination = Routes.LOGIN,
+            startDestination = "splash", // ✅ Splash ilk ekran
             modifier = Modifier.padding(inner)
         ) {
+            /* ---------- SPLASH ---------- */
+            composable("splash") {
+                SplashScreen {
+                    nav.navigate(Routes.LOGIN) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            }
+
             /* ---------- AUTH ---------- */
             composable(Routes.LOGIN) {
                 LoginScreen(
                     onLogin = { tc, pass, _ ->
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
-                                is R.Ok -> nav.navigate(Routes.HOME) {
-                                    popUpTo(Routes.LOGIN) { inclusive = true }
+                                is R.Ok -> {
+                                    nav.navigate(Routes.HOME) {
+                                        popUpTo(Routes.LOGIN) { inclusive = true }
+                                    }
                                 }
-                                is R.Err -> Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
+                                is R.Err -> {
+                                    Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     },
@@ -150,7 +168,9 @@ fun AppNav() {
                                     Toast.makeText(ctx, "Kayıt tamamlandı", Toast.LENGTH_SHORT).show()
                                     nav.popBackStack()
                                 }
-                                is R.Err -> Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
+                                is R.Err -> {
+                                    Toast.makeText(ctx, r.msg, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     }
@@ -218,26 +238,31 @@ fun AppNav() {
                         FinancialCalculationsScreen(
                             onLoanCalcClick = { nav.navigate(ROUTE_CALC_LOAN) },
                             onPlanClick     = { nav.navigate(ROUTE_PLANS) },
-                            onInvestClick   = { nav.navigate(ROUTE_INVEST) }, // ✅ burada bağlandı
-                            onFxClick       = { /* nav.navigate("calc_doviz") */ }
+                            onInvestClick   = { nav.navigate(ROUTE_INVEST) },
+                            onFxClick       = { nav.navigate(ROUTE_FX) }
                         )
                     }
                 }
             }
 
-            // Kredi Faiz Hesaplama ekranı
+            // Kredi Faiz Hesaplama
             composable(ROUTE_CALC_LOAN) {
                 KrediFaizHesaplamaScreen(onBack = { nav.popBackStack() })
             }
 
-            // Ödeme Planları ekranı
+            // Ödeme Planları
             composable(ROUTE_PLANS) {
                 OdemePlanlariScreen(onBack = { nav.popBackStack() })
             }
 
-            // ✅ Portföy Simülasyonu ekranı
+            // Yalın Yatırım (tutar + yıl + aylık katkı)
             composable(ROUTE_INVEST) {
-                PortfoySimulasyonScreen(onBack = { nav.popBackStack() })
+                YalinYatirimScreen(onBack = { nav.popBackStack() })
+            }
+
+            // Döviz & Kur Hesaplama (USD/EUR sabit kurlar)
+            composable(ROUTE_FX) {
+                DovizHesaplamaScreen(onBack = { nav.popBackStack() })
             }
         }
     }
