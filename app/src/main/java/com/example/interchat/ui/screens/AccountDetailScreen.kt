@@ -2,42 +2,55 @@ package com.example.interchat.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.text.NumberFormat
-import java.util.*
+import java.util.Locale
 
-private fun money(minor: Long, cur: Currency): String =
-    NumberFormat.getCurrencyInstance(Locale("tr","TR")).apply { currency = cur }
-        .format(minor / 100.0)
-
-private val demoAccounts = listOf(
-    Account("1","Vadesiz TL","TR12 1234 5678 9012 3456 78", Currency.getInstance("TRY"), 1_284_500),
-    Account("2","Vadeli TL","TR90 0001 2345 6789 0000 11", Currency.getInstance("TRY"), 15_400_000)
-)
+private val moneyTr: NumberFormat = NumberFormat.getCurrencyInstance(Locale("tr","TR"))
+private fun Double.tl(): String = moneyTr.format(this)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountDetailScreen(accountId: String, onBack: () -> Unit) {
-    val acc = demoAccounts.find { it.id == accountId }
+    val vm: AccountsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val accounts = vm.accounts.collectAsState().value
+    val acc = accounts.find { it.id == accountId }
+
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(acc?.title ?: "Hesap Detayı") },
+            TopAppBar(
+                title = { Text(acc?.name ?: "Hesap Detayı") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Geri") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri")
+                    }
                 }
             )
         }
     ) { p ->
-        Column(Modifier.padding(p).padding(16.dp)) {
-            if (acc == null) { Text("Hesap bulunamadı."); return@Column }
-            Text("IBAN: ${acc.iban}")
-            Spacer(Modifier.height(8.dp))
-            Text("Bakiye: ${money(acc.balanceMinor, acc.currency)}")
+        Column(
+            modifier = Modifier
+                .padding(p)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (acc == null) {
+                Text("Hesap bulunamadı veya bağlı değilsiniz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                return@Column
+            }
+            Text("Hesap Adı", style = MaterialTheme.typography.labelMedium)
+            Text(acc.name, fontWeight = FontWeight.SemiBold)
+            Divider()
+            Text("IBAN", style = MaterialTheme.typography.labelMedium)
+            Text(acc.iban)
+            Divider()
+            Text("Bakiye", style = MaterialTheme.typography.labelMedium)
+            Text(acc.balance.tl(), fontWeight = FontWeight.SemiBold)
         }
     }
 }
