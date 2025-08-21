@@ -23,13 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.interchat.data.session.UserSession   // <-- eklendi
+import com.example.interchat.data.session.UserSession
 import com.example.interchat.domain.LoginWithTcUseCase
 import com.example.interchat.domain.R
 import com.example.interchat.ui.screens.*
@@ -53,11 +54,11 @@ fun AppNav() {
     val loginUC  = remember { LoginWithTcUseCase(authRepo) }
 
     val bottomItems = listOf(
-        BottomItem(Routes.HOME, "Ana Sayfa")         { Icon(Icons.Outlined.Home, null) },
-        BottomItem(Routes.ACCOUNTS, "Hesaplar")      { Icon(Icons.Outlined.AccountCircle, null) },
-        BottomItem(Routes.CHAT_AI, "ChatAI")         { Icon(Icons.Outlined.SmartToy, null) },
-        BottomItem(Routes.TRANSACTIONS_HOME, "İşlemler") { Icon(Icons.Outlined.ListAlt, null) },
-        BottomItem(Routes.FAQ, "SSS")                { Icon(Icons.Outlined.HelpCenter, null) }
+        BottomItem(Routes.HOME, "Ana Sayfa")            { Icon(Icons.Outlined.Home, null) },
+        BottomItem(Routes.ACCOUNTS, "Hesaplar")         { Icon(Icons.Outlined.AccountCircle, null) },
+        BottomItem(Routes.CHAT_AI, "ChatAI")            { Icon(Icons.Outlined.SmartToy, null) },
+        BottomItem(Routes.TRANSACTIONS_HOME, "İşlemler"){ Icon(Icons.Outlined.ListAlt, null) },
+        BottomItem(Routes.FAQ, "SSS")                   { Icon(Icons.Outlined.HelpCenter, null) }
     )
     val bottomRoutes = bottomItems.map { it.route }
 
@@ -71,7 +72,10 @@ fun AppNav() {
                             selected = current == item.route,
                             onClick = {
                                 nav.navigate(item.route) {
-                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                    // ✅ alt menü geçişlerinde back stack şişmesin
+                                    popUpTo(nav.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -93,6 +97,7 @@ fun AppNav() {
                 SplashScreen {
                     nav.navigate(Routes.LOGIN) {
                         popUpTo("splash") { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
@@ -103,9 +108,11 @@ fun AppNav() {
                         scope.launch {
                             when (val res = loginUC(tc, pass)) {
                                 is R.Ok -> {
-                                    UserSession.setUserId("u1") // mock kullanıcı (backend gelince gerçek id ver)
+                                    UserSession.setUserId("u1") // mock kullanıcı
                                     nav.navigate(Routes.HOME) {
+                                        // ✅ Login -> Home geçişinde Login'i temizle
                                         popUpTo(Routes.LOGIN) { inclusive = true }
+                                        launchSingleTop = true
                                     }
                                 }
                                 is R.Err -> Toast.makeText(ctx, res.msg, Toast.LENGTH_SHORT).show()
@@ -119,7 +126,20 @@ fun AppNav() {
                 )
             }
 
-            composable(Routes.HOME) { HomeScreen() }
+            // ✅ HomeScreen: navigate callback’leri bağlandı + logout sonrası Login’e dön
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onOpenChat = { nav.navigate(Routes.CHAT_AI) },
+                    onOpenTransactions = { nav.navigate(Routes.TRANSACTIONS_HOME) },
+                    onLoggedOut = {
+                        nav.navigate(Routes.LOGIN) {
+                            // back stack’i tamamen temizle (uygulama köküne kadar)
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
 
             composable(Routes.ACCOUNTS) {
                 AccountsScreen(

@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -65,6 +66,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.interchat.R
+import com.example.interchat.data.CredentialsStore
+import com.example.interchat.data.MockAuthRepository
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /* ------------------------------------------------------------- */
 /*                        HOME SCREEN (FINAL)                    */
@@ -72,10 +77,10 @@ import com.example.interchat.R
 
 @Composable
 fun HomeScreen(
-    onLogout: () -> Unit = {},
     userName: String = "Ahmet",
     onOpenChat: () -> Unit = {},
     onOpenTransactions: () -> Unit = {},
+    onLoggedOut: () -> Unit = {}, // ✅ Logout bittikten sonra çalıştırılacak callback
     // MOCK – API gelince dışarıdan ver
     totalBalanceText: String = "₺45,230",
     incomeThisMonthText: String = "₺12,500",
@@ -85,6 +90,24 @@ fun HomeScreen(
 ) {
     val headerBrush = Brush.verticalGradient(listOf(Color(0xFF318CFF), Color(0xFF7C4DFF)))
     val transactions = remember(transactionsMock) { transactionsMock }
+
+    // ✅ Logout altyapısı (repo + coroutine)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val store = remember { CredentialsStore(context) }
+    val authRepo = remember { MockAuthRepository(store) }
+
+    val doLogout: () -> Unit = remember{
+        {
+            scope.launch {
+                // kayıtlı oturum bilgilerini kapat
+                authRepo.logout()
+                // (opsiyonel) kalıcı kimlik bilgilerini de silmek istersen:
+                // store.clear()
+                onLoggedOut()
+            }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         // Üst degrade + dekoratif daireler
@@ -101,7 +124,7 @@ fun HomeScreen(
         )
 
         Column(Modifier.fillMaxSize()) {
-            TopHeaderBar(userName = userName, onLogout = onLogout)
+            TopHeaderBar(userName = userName, onLogout = doLogout)
 
             // İçerik: üst köşeleri yuvarlatılmış beyaz panel
             Surface(
@@ -230,7 +253,7 @@ private fun TopHeaderBar(
             GlassIconButton(
                 icon = Icons.Outlined.Logout,   // kapı + sağa ok
                 contentDesc = "Çıkış",
-                onClick = onLogout,
+                onClick = onLogout,              // ✅ gerçek logout
                 size = 40.dp
             )
         }
@@ -385,7 +408,6 @@ private fun StatCard(
 }
 
 /* ----------------------- INTERCHAT BANNER ------------------- */
-/* Robot kutusunda press ile büyüme + iki adet mavi hareketli nokta */
 
 @Composable
 private fun InterChatBanner(onClick: () -> Unit) {
@@ -515,7 +537,7 @@ private fun InterChatBanner(onClick: () -> Unit) {
     }
 }
 
-/* Yukarı-aşağı salınan küçük nokta (eski Compose imzalarıyla uyumlu) */
+/* Yukarı-aşağı salınan küçük nokta */
 @Composable
 private fun FloatingDot(
     color: Color,
