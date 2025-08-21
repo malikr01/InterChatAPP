@@ -97,7 +97,6 @@ fun AppNav() {
                 SplashScreen {
                     nav.navigate(Routes.LOGIN) {
                         popUpTo("splash") { inclusive = true }
-                        launchSingleTop = true
                     }
                 }
             }
