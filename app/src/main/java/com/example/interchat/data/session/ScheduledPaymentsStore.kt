@@ -1,5 +1,7 @@
 package com.example.interchat.data.session
 
+//bu kısımda ekranlar burayı dinler şuan için mock store değiştiğinde ekran kendini yeniler
+
 import com.example.interchat.domain.finance.ScheduledPayment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,11 +60,29 @@ object ScheduledPaymentsStore {
     private fun defaultSeed(uid: String): List<ScheduledPayment> =
         when (uid) {
             "u1" -> listOf(
-                ScheduledPayment(id = "sp1", userId = "u1", title = "Elektrik", dayOfMonth = 10, amount = 400.0),
-                ScheduledPayment(id = "sp2", userId = "u1", title = "Su",       dayOfMonth = 15, amount = 180.0),
+                ScheduledPayment(
+                    id = "sp1",
+                    userId = "u1",
+                    title = "Elektrik",
+                    dayOfMonth = 10,
+                    amount = 400.0
+                ),
+                ScheduledPayment(
+                    id = "sp2",
+                    userId = "u1",
+                    title = "Su",
+                    dayOfMonth = 15,
+                    amount = 180.0
+                ),
             )
             "u2" -> listOf(
-                ScheduledPayment(id = "sp3", userId = "u2", title = "İnternet", dayOfMonth = 20, amount = 250.0),
+                ScheduledPayment(
+                    id = "sp3",
+                    userId = "u2",
+                    title = "İnternet",
+                    dayOfMonth = 20,
+                    amount = 250.0
+                ),
             )
             else -> emptyList()
         }

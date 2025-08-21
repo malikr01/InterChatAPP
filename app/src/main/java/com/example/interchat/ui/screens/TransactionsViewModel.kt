@@ -2,48 +2,45 @@ package com.example.interchat.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.interchat.data.finance.mock.MockTransactionRepository
+import com.example.interchat.data.di.Repos
 import com.example.interchat.data.session.TransactionExtrasStore
 import com.example.interchat.data.session.UserSession
 import com.example.interchat.domain.finance.Transaction
-import com.example.interchat.domain.finance.TransactionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/**
- * İşlem geçmişi VM
- * - repo'dan gelen "base" işlemler + TransactionExtrasStore'dan gelen "ek" işlemler = items
- * - userId değişince hem repo yüklenir hem extras store ayarlanır
- */
-class TransactionsViewModel(
-    private val repo: TransactionRepository = MockTransactionRepository()
-) : ViewModel() {
+class TransactionsViewModel : ViewModel() {
 
-    private val _base    = MutableStateFlow<List<Transaction>>(emptyList())
-    private val _items   = MutableStateFlow<List<Transaction>>(emptyList())
     private val _loading = MutableStateFlow(false)
     private val _error   = MutableStateFlow<String?>(null)
     private val _userId  = MutableStateFlow<String?>(null)
 
-    val items:   StateFlow<List<Transaction>> = _items
-    val loading: StateFlow<Boolean>           = _loading
-    val error:   StateFlow<String?>           = _error
-    val userId:  StateFlow<String?>           = _userId
+    val loading: StateFlow<Boolean> = _loading
+    val error:   StateFlow<String?> = _error
+    val userId:  StateFlow<String?> = _userId
+
+    private val _serverItems = MutableStateFlow<List<Transaction>>(emptyList())
+    private val extras = TransactionExtrasStore.items
+
+    /** extras + server birleşik liste (extras önce) */
+    val items: StateFlow<List<Transaction>> =
+        combine(extras, _serverItems) { ex, srv -> ex + srv }
+            .map { list -> list.sortedByDescending { it.date } }
+            .let { flow ->
+                val out = MutableStateFlow(emptyList<Transaction>())
+                viewModelScope.launch { flow.collect { out.value = it } }
+                out
+            }
 
     init {
-        // userId akışını dinle
         viewModelScope.launch {
             UserSession.userId.collect { uid ->
                 _userId.value = uid
-                TransactionExtrasStore.onUserChanged(uid) // ⬅ extras store'u yeni kullanıcıya geçir
+                TransactionExtrasStore.onUserChanged(uid)
                 load()
-            }
-        }
-        // extras değişince toplamı güncelle
-        viewModelScope.launch {
-            TransactionExtrasStore.items.collect { extras ->
-                _items.value = _base.value + extras
             }
         }
     }
@@ -51,15 +48,20 @@ class TransactionsViewModel(
     fun refresh() = viewModelScope.launch { load() }
 
     private suspend fun load() {
-        val uid = _userId.value
-        _loading.value = true
-        _error.value = null
+        val uid = _userId.value ?: return
         try {
-            _base.value = if (uid == null) emptyList() else repo.getTransactions(uid)
-            // toplam = base + extras
-            _items.value = _base.value + TransactionExtrasStore.items.value
+            _loading.value = true
+            _error.value = null
+
+            // ✅ Çoğu projede repo direkt List<Transaction> döner:
+            val list: List<Transaction> = Repos.transactionRepo.getTransactions(uid)
+            _serverItems.value = list
+
+            // Eğer senin repo sayfalama döndürüyorsa şuna çevir:
+            // val page = Repos.transactionRepo.getTransactions(uid)
+            // _serverItems.value = page.items
         } catch (t: Throwable) {
-            _error.value = t.message ?: "Bilinmeyen hata"
+            _error.value = t.message
         } finally {
             _loading.value = false
         }

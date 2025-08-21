@@ -2,7 +2,7 @@ package com.example.interchat.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.interchat.data.finance.mock.MockAccountRepository
+import com.example.interchat.data.di.Repos
 import com.example.interchat.data.session.AccountsStore
 import com.example.interchat.data.session.UserSession
 import com.example.interchat.domain.finance.Account
@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * - İlk kez kullanıcı için repo'dan seed eder
  */
 class AccountsViewModel(
-    private val repo: AccountRepository = MockAccountRepository()
+    private val repo: AccountRepository = Repos.accountRepo
 ) : ViewModel() {
 
     private val _loading  = MutableStateFlow(false)

@@ -2,7 +2,7 @@ package com.example.interchat.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.interchat.data.finance.mock.MockTransferRepository
+import com.example.interchat.data.di.Repos
 import com.example.interchat.data.session.UserSession
 import com.example.interchat.domain.finance.TransferRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class TransferViewModel(
-    private val repo: TransferRepository = MockTransferRepository()
+    private val repo: TransferRepository = Repos.transferRepo
 ) : ViewModel() {
 
     private val _loading = MutableStateFlow(false)

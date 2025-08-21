@@ -2,22 +2,38 @@
 
 package com.example.interchat.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.interchat.data.session.UserSession
 import com.example.interchat.domain.finance.Account
 import java.text.NumberFormat
 import java.util.Locale
 
-/* ---- Para & IBAN yardımcıları ---- */
+/* ---------------- helpers ---------------- */
+
 private val moneyTr: NumberFormat = NumberFormat.getCurrencyInstance(Locale("tr","TR"))
 private fun Double.tl(): String = moneyTr.format(this)
+
 private fun String.maskIban(): String {
     val clean = replace(" ", "")
     if (clean.length < 12) return this
@@ -26,60 +42,73 @@ private fun String.maskIban(): String {
     return (head + "**************" + tail).chunked(4).joinToString(" ")
 }
 
-/* ---- Bağlantı durumu barı ---- */
-@Composable
-private fun AccountsStatusBar(vm: AccountsViewModel, totalBalance: Double) {
-    val loading = vm.loading.collectAsState().value
-    val error   = vm.error.collectAsState().value
-    val uid     = vm.userId.collectAsState().value
-    val count   = vm.accounts.collectAsState().value.size
+/* ---------------- status bar ---------------- */
 
+@Composable
+private fun AccountsStatusBar(
+    userId: String?,
+    totalBalance: Double,
+    loading: Boolean,
+    error: String?,
+    onRefresh: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = {}, label = { Text(if (uid != null) "Bağlı: $uid (mock)" else "Bağlı değil") })
-            AssistChip(onClick = {}, label = { Text("Hesap sayısı: $count") })
+            AssistChip(onClick = {}, label = { Text(if (userId != null) "Bağlı: $userId" else "Bağlı değil") })
             AssistChip(onClick = {}, label = { Text("Toplam: ${totalBalance.tl()}") })
             Spacer(Modifier.weight(1f))
-            OutlinedButton(onClick = { vm.refresh() }, enabled = !loading) { Text("Yenile") }
+            OutlinedButton(onClick = onRefresh, enabled = !loading) { Text("Yenile") }
         }
-        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (error != null) Text("Hata: $error", color = MaterialTheme.colorScheme.error)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { UserSession.setUserId("u1") }) { Text("Bağlan (u1)") }
-            TextButton(onClick = { UserSession.setUserId("u2") }) { Text("Bağlan (u2)") }
-            TextButton(onClick = { UserSession.setUserId(null) }) { Text("Bağlantıyı Kes") }
+            Button(onClick = { UserSession.setUserId("u1") }) { Text("Bağlan (u1)") }
+            OutlinedButton(onClick = { UserSession.setUserId(null) }) { Text("Bağlantıyı Kes") }
         }
         Divider()
     }
 }
 
-/* ---- Tek hesap kartı ---- */
+/* ---------------- account card ---------------- */
+
 @Composable
 private fun AccountCard(account: Account, onClick: (String) -> Unit) {
     Card(
-        onClick = { onClick(account.id) },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(account.id) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        ListItem(
-            headlineContent   = { Text(account.name, fontWeight = FontWeight.SemiBold) },
-            supportingContent = { Text(account.iban.maskIban()) },
-            trailingContent   = { Text(account.balance.tl(), fontWeight = FontWeight.SemiBold) }
-        )
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(account.iban.maskIban(), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                account.balance.tl(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
-/* ---- Ekran ---- */
+/* ---------------- screen ---------------- */
+
 @Composable
 fun AccountsScreen(
     onAccountClick: (String) -> Unit,
     onOpenCardDetail: () -> Unit = {}
 ) {
-    val vm: AccountsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val accounts = vm.accounts.collectAsState().value
+    val vm: AccountsViewModel = viewModel()
+    val accounts by vm.accounts.collectAsState()
+    val loading  by vm.loading.collectAsState()
+    val error    by vm.error.collectAsState()
+    val userId   by vm.userId.collectAsState()
+
     val total = accounts.sumOf { it.balance }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Hesap Özeti") }) }) { pad ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Hesaplar") }) }
+    ) { pad ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -87,18 +116,30 @@ fun AccountsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AccountsStatusBar(vm, total)
+            AccountsStatusBar(
+                userId = userId,
+                totalBalance = total,
+                loading = loading,
+                error = error,
+                onRefresh = vm::refresh
+            )
 
-            OutlinedButton(onClick = onOpenCardDetail, modifier = Modifier.fillMaxWidth()) {
-                Text("Kart Detayına Git")
-            }
-
-            if (accounts.isEmpty()) {
-                Text("Hesap bulunamadı veya bağlı değilsiniz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(accounts, key = { it.id }) { acc ->
-                        AccountCard(account = acc, onClick = onAccountClick)
+            when {
+                accounts.isEmpty() && !loading && userId == null -> {
+                    Text("Hesap yok. Üstten “Bağlan (u1)”a basın, sonra Yenile’ye dokunun.")
+                }
+                accounts.isEmpty() && !loading -> {
+                    Text("Hesap bulunamadı.")
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(accounts) { acc ->
+                            AccountCard(acc, onClick = onAccountClick)
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
                     }
                 }
             }

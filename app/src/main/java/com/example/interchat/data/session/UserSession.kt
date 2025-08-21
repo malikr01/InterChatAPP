@@ -1,5 +1,7 @@
 package com.example.interchat.data.session
 
+//bu kısımda uygulamaya hangi kullanıcı bağlı
+
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 

@@ -21,3 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "InterChat"
 include(":app")
+
+//geçici api kurulumu
+rootProject.name = "mini-api"

@@ -2,6 +2,7 @@
 
 package com.example.interchat.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,9 +13,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.interchat.data.session.ScheduledPaymentsStore
 import com.example.interchat.data.session.UserSession
-import com.example.interchat.domain.finance.TxType
+import com.example.interchat.domain.finance.Account
+import com.example.interchat.domain.finance.ScheduledPayment
+import com.example.interchat.domain.finance.Transaction
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -64,18 +68,18 @@ private fun ConnectionStatusBar(vm: TransactionsViewModel) {
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = {}, label = { Text(if (uid != null) "Bağlı: $uid (mock)" else "Bağlı değil") })
+            AssistChip(onClick = {}, label = { Text(if (uid != null) "Bağlı: $uid" else "Bağlı değil") })
             AssistChip(onClick = {}, label = { Text("İşlem sayısı: $txCount") })
-            AssistChip(onClick = {}, label = { Text("Planlı: $scheduledCount") }) // ⬅ planlı sayaç
+            AssistChip(onClick = {}, label = { Text("Planlı: $scheduledCount") })
             Spacer(modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { vm.refresh() }, enabled = !loading) {
-                Text("Yenile") // ⬅ geri geldi
+                Text("Yenile")
             }
         }
         if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (error != null) Text("Hata: $error", color = MaterialTheme.colorScheme.error)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { UserSession.setUserId("u1") }) { Text("Bağlan (Mock u1)") }
+            TextButton(onClick = { UserSession.setUserId("u1") }) { Text("Bağlan (u1)") }
             TextButton(onClick = { UserSession.setUserId(null) }) { Text("Bağlantıyı Kes") }
         }
         Divider()
@@ -92,10 +96,9 @@ fun TransactionsHomeScreen(
     onHistory: () -> Unit,
     onCalculations: () -> Unit
 ) {
-    val vm: TransactionsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val vm: TransactionsViewModel = viewModel()
 
     TxScaffold(title = "İşlemler") {
-        // Bağlı kullanıcı + sayaç + yenile
         ConnectionStatusBar(vm)
 
         Button(onClick = onTransfer,     modifier = Modifier.fillMaxWidth()) { Text("Hızlı Transfer") }
@@ -110,10 +113,9 @@ fun TransactionsHomeScreen(
 /* ------------------- 1) Hızlı Transfer ------------------- */
 @Composable
 fun TransferScreen(onBack: () -> Unit) {
-    val tVm: TransferViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val aVm: AccountsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val tVm: TransferViewModel = viewModel()
+    val aVm: AccountsViewModel = viewModel()
 
-    // hesaplar (AccountsStore üzerinden)
     val accounts = aVm.accounts.collectAsState().value
     val loading  = tVm.loading.collectAsState().value
     val result   = tVm.result.collectAsState().value
@@ -125,13 +127,12 @@ fun TransferScreen(onBack: () -> Unit) {
     var amountStr by remember { mutableStateOf("") }
 
     TxScaffold(title = "Hızlı Transfer", onBack = onBack) {
-        // Hesap seçimi
         if (accounts.isEmpty()) {
-            Text("Hesabınız bulunamadı. Bağlanın veya Hesaplar sekmesinden seed olun.", color = MaterialTheme.colorScheme.error)
+            Text("Hesabınız bulunamadı. 'Bağlan (u1)' yapın veya Hesaplar sekmesinden seed olun.", color = MaterialTheme.colorScheme.error)
         } else {
             val sel = accounts.firstOrNull { it.id == selectedId } ?: accounts.first()
             selectedId = sel.id
-            Text("Kaynak Hesap: ${sel.name} • Bakiye: %,.2f ₺".format(sel.balance), fontWeight = FontWeight.SemiBold)
+            Text("Kaynak Hesap: ${sel.name} • Bakiye: ${sel.balance.tl()}", fontWeight = FontWeight.SemiBold)
         }
 
         OutlinedTextField(value = toIban, onValueChange = { toIban = it },
@@ -141,7 +142,6 @@ fun TransferScreen(onBack: () -> Unit) {
         OutlinedTextField(value = amountStr, onValueChange = { amountStr = it },
             label = { Text("Tutar (₺)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
-        // basit seçim için butonlar
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             accounts.take(3).forEach { acc ->
                 OutlinedButton(onClick = { selectedId = acc.id }) { Text(acc.name) }
@@ -166,120 +166,121 @@ fun TransferScreen(onBack: () -> Unit) {
     }
 }
 
-
-/* ------------------- 2) Fatura Ödeme ------------------- */
+/* ------------------- 2) Fatura Ödeme (basit mock UI) ------------------- */
 @Composable
 fun BillPaymentScreen(onBack: () -> Unit) {
-    var category by remember { mutableStateOf("Elektrik") }
-    var subscriber by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<String?>(null) }
+    TxScaffold(title = "Fatura Öde", onBack = onBack) {
+        var kurum by remember { mutableStateOf("") }
+        var abone by remember { mutableStateOf("") }
+        var amount by remember { mutableStateOf("") }
 
-    TxScaffold(title = "Fatura Ödeme", onBack = onBack) {
-        OutlinedTextField(category, { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(subscriber,{ subscriber = it }, label = { Text("Abone No") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(amount,   { amount = it },    label = { Text("Tutar (₺)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { result = "Ödeme talebi alındı." }, modifier = Modifier.fillMaxWidth()) { Text("Öde") }
-        result?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        OutlinedTextField(kurum, { kurum = it }, label = { Text("Kurum (örn. Elektrik)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(abone, { abone = it }, label = { Text("Abone No") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(amount, { amount = it }, label = { Text("Tutar (₺)") }, modifier = Modifier.fillMaxWidth())
+
+        Button(onClick = { /* TODO: dilersek TransactionExtrasStore'a 'bill' ekleyebiliriz */ },
+            modifier = Modifier.fillMaxWidth()) {
+            Text("Öde")
+        }
+        Text("Not: Bu ekran demo. Transfer ekranındaki akış tam entegre.", style = MaterialTheme.typography.bodySmall)
     }
 }
 
-/* ------------------- 3) TL Yükleme ------------------- */
+/* ------------------- 3) TL Yükleme (basit mock UI) ------------------- */
 @Composable
 fun TopUpScreen(onBack: () -> Unit) {
-    var phone by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<String?>(null) }
+    TxScaffold(title = "TL Yükle", onBack = onBack) {
+        var phone by remember { mutableStateOf("") }
+        var amount by remember { mutableStateOf("") }
 
-    TxScaffold(title = "TL Yükleme", onBack = onBack) {
-        OutlinedTextField(phone,  { phone = it },  label = { Text("Telefon No") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(amount, { amount = it }, label = { Text("Tutar (₺)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { result = "Yükleme talebi alındı." }, modifier = Modifier.fillMaxWidth()) { Text("Yükle") }
-        result?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        OutlinedTextField(phone, { phone = it }, label = { Text("Telefon") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(amount, { amount = it }, label = { Text("Tutar (₺)") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { /* TODO: extras'a topup eklenebilir */ }, modifier = Modifier.fillMaxWidth()) {
+            Text("Yükle")
+        }
     }
 }
 
-/* ------------------- 4) Planlı Ödemeler (store bağlı) ------------------- */
+/* ------------------- 4) Planlı Ödemeler ------------------- */
 @Composable
 fun ScheduledPaymentsScreen(onBack: () -> Unit) {
-    val uid = UserSession.userId.collectAsState().value
-    LaunchedEffect(uid) { ScheduledPaymentsStore.onUserChanged(uid) }
-    val items = ScheduledPaymentsStore.items.collectAsState().value
-
     TxScaffold(title = "Planlı Ödemeler", onBack = onBack) {
+        val uid by remember { derivedStateOf { UserSession.userId.value } }
+        LaunchedEffect(uid) { ScheduledPaymentsStore.onUserChanged(uid) }
+
+        val items = ScheduledPaymentsStore.items.collectAsState().value
+
         if (items.isEmpty()) {
-            Text("Planlı ödeme bulunamadı.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Planlı ödeme bulunamadı.")
         } else {
-            LazyColumn {
-                items(items) { it ->
-                    ListItem(
-                        headlineContent = { Text(it.title) },
-                        supportingContent = { Text("Her ayın ${it.dayOfMonth}'u") },
-                        trailingContent   = { Text("%,.2f ₺".format(it.amount)) }
-                    )
-                    Divider()
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(items) { sp ->
+                    ScheduledItemCard(sp)
                 }
             }
         }
-        Button(
-            onClick = { ScheduledPaymentsStore.addMock() },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Yeni Plan Ekle (mock)") }
     }
 }
 
-/* ------------------- Para format helper ------------------- */
-private val moneyTr: NumberFormat = NumberFormat.getCurrencyInstance(Locale("tr", "TR"))
-private fun Double.formatTL(): String = moneyTr.format(this)
+@Composable
+private fun ScheduledItemCard(sp: ScheduledPayment) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(sp.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Ödeme günü: ${sp.dayOfMonth}", style = MaterialTheme.typography.bodyMedium)
+            Text(sp.amount.tl(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
 
 /* ------------------- 5) İşlem Geçmişi ------------------- */
 @Composable
 fun TransactionHistoryScreen(onBack: () -> Unit) {
-    val vm: TransactionsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val all = vm.items.collectAsState().value
-
-    var query by remember { mutableStateOf("") }
-    var active by remember { mutableStateOf<TxType?>(null) }
-
-    val filtered = all.filter { row ->
-        val q = query.trim()
-        val byText = if (q.isBlank()) true else
-            row.title.contains(q, ignoreCase = true) || row.date.toString().contains(q)
-        val byType = active?.let { it == row.type } ?: true
-        byText && byType
-    }
+    val vm: TransactionsViewModel = viewModel()
+    val items = vm.items.collectAsState().value
 
     TxScaffold(title = "İşlem Geçmişi", onBack = onBack) {
-        ConnectionStatusBar(vm) // üstte de göstermek istersen
+        ConnectionStatusBar(vm)
 
-        OutlinedTextField(
-            value = query, onValueChange = { query = it },
-            label = { Text("Ara (ad/tarih/tip)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = active == null, onClick = { active = null }, label = { Text("Tümü") })
-            FilterChip(selected = active == TxType.Transfer, onClick = { active = TxType.Transfer }, label = { Text("Transfer") })
-            FilterChip(selected = active == TxType.Bill,     onClick = { active = TxType.Bill },     label = { Text("Fatura") })
-            FilterChip(selected = active == TxType.TopUp,    onClick = { active = TxType.TopUp },    label = { Text("TL Yükleme") })
-        }
-
-        Divider()
-
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            items(filtered, key = { it.id }) { tx ->
-                ListItem(
-                    headlineContent   = { Text(tx.title, fontWeight = FontWeight.SemiBold) },
-                    supportingContent = { Text(tx.date.toString()) },
-                    trailingContent   = {
-                        val color = if (tx.amount < 0) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary
-                        Text("%,.2f ₺".format(tx.amount), color = color, fontWeight = FontWeight.SemiBold)
-                    }
-                )
-                Divider()
+        if (items.isEmpty()) {
+            Text("İşlem yok. 'Bağlan (u1)' yapıp 'Yenile'ye basın, ardından bir transfer deneyin.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(items) { tx -> TransactionRow(tx) }
+                item { Spacer(Modifier.height(4.dp)) }
             }
         }
     }
 }
+
+@Composable
+private fun TransactionRow(tx: Transaction) {
+    Row(
+        Modifier.fillMaxWidth().clickable { /* detay sayfası açılabilir */ }.padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text(tx.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(tx.date.toString(), style = MaterialTheme.typography.bodySmall)
+        }
+        Text(
+            tx.amount.tl(),
+            style = MaterialTheme.typography.titleMedium,
+            color = if (tx.amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+        )
+    }
+    Divider()
+}
+
+/* ------------------- Para format helper ------------------- */
+private val moneyTr: NumberFormat = NumberFormat.getCurrencyInstance(Locale("tr", "TR"))
+private fun Double.tl(): String = moneyTr.format(this)
