@@ -58,7 +58,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(24.dp))
 
             Text(
-                text = "Hoş Geldiniz",
+                text = "InterChat'e Hoş Geldiniz ",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

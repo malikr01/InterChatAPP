@@ -10,14 +10,7 @@ import androidx.compose.material.icons.outlined.HelpCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.material.icons.outlined.SmartToy
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,11 +64,10 @@ fun AppNav() {
                         NavigationBarItem(
                             selected = current == item.route,
                             onClick = {
-                                nav.navigate(item.route) {
-                                    // ✅ alt menü geçişlerinde back stack şişmesin
-                                    popUpTo(nav.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
+                                // ChatAI sekmesine basınca önce splash göster
+                                val target = if (item.route == Routes.CHAT_AI) Routes.CHAT_SPLASH else item.route
+                                nav.navigate(target) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -93,6 +85,7 @@ fun AppNav() {
             startDestination = "splash",
             modifier = Modifier.padding(inner)
         ) {
+            // Uygulama açılışındaki splash
             composable("splash") {
                 SplashScreen {
                     nav.navigate(Routes.LOGIN) {
@@ -109,7 +102,6 @@ fun AppNav() {
                                 is R.Ok -> {
                                     UserSession.setUserId("u1") // mock kullanıcı
                                     nav.navigate(Routes.HOME) {
-                                        // ✅ Login -> Home geçişinde Login'i temizle
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                         launchSingleTop = true
                                     }
@@ -125,14 +117,13 @@ fun AppNav() {
                 )
             }
 
-            // ✅ HomeScreen: navigate callback’leri bağlandı + logout sonrası Login’e dön
+            // Home: Chat'e giderken CHAT_SPLASH'a yönlendir
             composable(Routes.HOME) {
                 HomeScreen(
-                    onOpenChat = { nav.navigate(Routes.CHAT_AI) },
+                    onOpenChat = { nav.navigate(Routes.CHAT_SPLASH) },
                     onOpenTransactions = { nav.navigate(Routes.TRANSACTIONS_HOME) },
                     onLoggedOut = {
                         nav.navigate(Routes.LOGIN) {
-                            // back stack’i tamamen temizle (uygulama köküne kadar)
                             popUpTo(0) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -145,6 +136,16 @@ fun AppNav() {
                     onAccountClick   = { id -> nav.navigate(Routes.accountDetail(id)) },
                     onOpenCardDetail = { nav.navigate(Routes.CARD_DETAIL) }
                 )
+            }
+
+            // Chat'e özel splash sayfası
+            composable(Routes.CHAT_SPLASH) {
+                SplashScreen {
+                    nav.navigate(Routes.CHAT_AI) {
+                        popUpTo(Routes.CHAT_SPLASH) { inclusive = true } // splash'i temizle
+                        launchSingleTop = true
+                    }
+                }
             }
 
             composable(Routes.CHAT_AI) { ChatAIScreen() }
@@ -211,7 +212,7 @@ fun AppNav() {
             composable(Routes.TX_HISTORY)   { TransactionHistoryScreen(onBack = { nav.popBackStack() }) }
 
             composable(Routes.TX_CALCULATORS) {
-                androidx.compose.material3.Scaffold(
+                Scaffold(
                     topBar = {
                         TopAppBar(
                             title = { Text("Hesaplamalar") },

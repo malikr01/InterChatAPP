@@ -10,6 +10,7 @@ object Routes {
     const val HOME               = "home"
     const val ACCOUNTS           = "accounts"
     const val CHAT_AI            = "chat_ai"
+    const val CHAT_SPLASH        = "chat_splash"   // 👈 Chat’e özel splash
     const val TRANSACTIONS_HOME  = "transactions/home"
     const val FAQ                = "faq"
 
