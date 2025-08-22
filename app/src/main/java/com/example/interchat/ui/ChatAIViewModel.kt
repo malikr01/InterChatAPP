@@ -2,42 +2,69 @@ package com.example.interchat.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.interchat.BuildConfig
-import com.example.interchat.data.ChatMessage
-import com.example.interchat.data.ChatRepository
-import com.example.interchat.data.OpenAIService
+import com.example.interchat.data.chat.ChatEvent
+import com.example.interchat.data.chat.ChatMessage
+import com.example.interchat.data.di.Repos
+import com.example.interchat.domain.ErrorMapper
+import com.example.interchat.util.JsonUtils
+import com.example.interchat.ui.common.UiEvent
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-data class ChatUiMessage(val fromMe: Boolean, val text: String)
+import java.util.UUID
 
 class ChatAIViewModel : ViewModel() {
 
-    private val service by lazy { OpenAIService.create(BuildConfig.OPENAI_API_KEY) }
-    private val repo by lazy { ChatRepository(service) }
+    private val chatRepo = Repos.aiChatRepo
 
-    private val _messages = MutableStateFlow<List<ChatUiMessage>>(emptyList())
-    val messages: StateFlow<List<ChatUiMessage>> = _messages
+    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val messages: StateFlow<List<ChatMessage>> = _messages
 
-    private val history = mutableListOf(
-        ChatMessage("system", "You are a helpful assistant that replies concisely in Turkish.")
-    )
+    private val _uiEvents = MutableSharedFlow<UiEvent>()
+    val uiEvents: SharedFlow<UiEvent> = _uiEvents
 
     fun send(text: String) {
-        if (text.isBlank()) return
-        _messages.value = _messages.value + ChatUiMessage(true, text)
+        val prompt = text.trim()
+        if (prompt.isBlank()) return
+
+        appendMessage(ChatMessage(id = uuid(), text = prompt, fromMe = true, isJson = JsonUtils.isJson(prompt)))
+
+        val botId = uuid()
+        appendMessage(ChatMessage(id = botId, text = "", fromMe = false, isJson = false))
 
         viewModelScope.launch {
             try {
-                history += ChatMessage("user", text)
-                _messages.value = _messages.value + ChatUiMessage(false, "Yazıyor…")
-                val answer = repo.ask(history)
-                _messages.value = _messages.value.dropLast(1) + ChatUiMessage(false, answer)
-                history += ChatMessage("assistant", answer)
-            } catch (e: Exception) {
-                _messages.value = _messages.value.dropLast(1) + ChatUiMessage(false, "Hata: ${e.message}")
+                chatRepo.send(prompt).collect { event ->
+                    when (event) {
+                        is ChatEvent.Delta -> updateMessage(botId) { it.copy(text = it.text + event.text, isJson = false) }
+                        is ChatEvent.Done  -> updateMessage(botId) { it.copy(text = event.fullText, isJson = JsonUtils.isJson(event.fullText)) }
+                        is ChatEvent.Error -> handleError(botId, RuntimeException(event.message))
+                    }
+                }
+            } catch (t: Throwable) {
+                handleError(botId, t)
             }
         }
     }
+
+    private fun handleError(botId: String, t: Throwable) {
+        val friendly = ErrorMapper.toUserMessage(t)
+        // Bot balonunda kibar metin
+        updateMessage(botId) { it.copy(text = friendly, isJson = false) }
+        // Snackbar
+        viewModelScope.launch {
+            _uiEvents.emit(UiEvent.ShowSnackbar(friendly))
+        }
+    }
+
+    private fun appendMessage(msg: ChatMessage) { _messages.update { it + msg } }
+
+    private inline fun updateMessage(id: String, transform: (ChatMessage) -> ChatMessage) {
+        _messages.update { list -> list.map { if (it.id == id) transform(it) else it } }
+    }
+
+    private fun uuid(): String = UUID.randomUUID().toString()
 }

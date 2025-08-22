@@ -1,4 +1,5 @@
-// app/src/main/java/com/example/interchat/ui/screens/ChatAIScreen.kt
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.interchat.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -10,53 +11,56 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.HeadsetMic
-import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.interchat.ui.ChatAIViewModel
+import com.example.interchat.ui.components.JsonViewer
+import com.example.interchat.ui.common.UiEvent
 import kotlinx.coroutines.launch
 
-data class ChatMsg(val fromBot: Boolean, val text: String)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatAIScreen(
     onConnectLiveSupport: () -> Unit = {}
 ) {
+    val vm: ChatAIViewModel = viewModel()
     val scope = rememberCoroutineScope()
 
-    var messages by remember {
-        mutableStateOf(
-            listOf(ChatMsg(true, "Merhaba! Ben FinansAI, kişisel finans asistanınız. Size nasıl yardımcı olabilirim?"))
-        )
-    }
+    val messages by vm.messages.collectAsState()
+    var input by remember { mutableStateOf("") }
 
-    // 🔹 Çok sayıda hazır soru (14 adet)
-    val quick: List<Pair<String, String>> = listOf(
-        "Harcamalarımı göster" to "Son 30 günde toplam harcaman 12.450₺. En çok market (%32) ve ulaşım (%21). İstersen kategori grafiğini açarım.",
-        "Yatırım önerileri"   to "Risk profilin orta. Öneri: %60 BIST30 endeks fonu, %20 TL mevduat, %20 altın fonu.",
-        "Borçlarım nasıl?"    to "Toplam borç: 27.300₺. Kart 7.800₺ (son ödeme 25’i), ihtiyaç kredisi 19.500₺ (aylık 2.350₺).",
-        "Birikim planı"       to "Acil durum için 45.000₺ hedefle. Aylık %20 tasarrufla ~7 ayda ulaşılır.",
-        "Bütçe öner"          to "50/30/20 kuralı: 15.000₺ gelir → 7.500₺ ihtiyaç, 4.500₺ istek, 3.000₺ birikim/borç.",
-        "Tasarruf ipuçları"   to "Market listesiyle alışveriş, nakit/ön ödemeli kart, istek harcamasına haftalık limit koy.",
-        "Kart analizim"       to "Bu ay kart harcaması 9.120₺. Temassız %28, online %41. Taksitli harcama 2.300₺.",
-        "Fatura özetim"       to "Aylık sabit giderlerin ~3.250₺: elektrik 820, su 260, doğalgaz 540, internet 320, gsm 180, kira 1.130.",
-        "Hedef belirle"       to "6 ayda tatil için 30.000₺ biriktirme: aylık 5.000₺ otomatik ayırma öneririm.",
-        "Açık kalem var mı?" to "Son 7 günde 3 bekleyen işlem var: Netflix 199₺, e‑Devlet 40₺, Yemeksepeti 156₺.",
-        "Gelir analizi"       to "Son 3 ay net gelir ortalaması 15.800₺. Değişkenlik %6 (stabil).",
-        "Vergi hatırlat"      to "Motorlu Taşıtlar 2. taksit son gün: 31 Temmuz. Ödeme planı istersen oluşturayım.",
-        "Döviz/altın"         to "Portföy korunması için döviz/altın toplamının %20’yi geçmemesi önerilir.",
-        "Risk profilim"       to "Kısa anketle risk profilini güncelleyebilirim. Son profilin: Orta (Skor 56/100)."
+    val quick = listOf(
+        "Bütçemi özetler misin?",
+        "Tasarruf ipuçları ver",
+        "Kart harcamalarım nasıl?",
+        "Yaklaşan ödemelerim var mı?",
+        "Bu ay hedefe göre durumum?"
     )
 
-    fun sendQuick(q: String, a: String) {
-        messages = messages + ChatMsg(false, q) +
-                ChatMsg(true, a + "\n\nOlmadıysa ‘Canlı desteğe bağla’ butonuna dokunabilirsin.")
+    val chipsState = rememberLazyListState()
+    val listState  = rememberLazyListState()
+    val snackbar   = remember { SnackbarHostState() }
+
+    // UI Event -> Snackbar
+    LaunchedEffect(Unit) {
+        vm.uiEvents.collect { ev ->
+            when (ev) {
+                is UiEvent.ShowSnackbar -> snackbar.showSnackbar(message = ev.message, actionLabel = ev.actionLabel)
+            }
+        }
     }
 
-    val chipsState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
 
     Scaffold(
         topBar = {
@@ -71,97 +75,112 @@ fun ChatAIScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },   // <— eklendi
         bottomBar = {
-            // 🔹 Yatay kaydırılabilir bar + sol/sağ oklar
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledTonalIconButton(
-                    onClick = {
-                        scope.launch {
-                            val first = chipsState.firstVisibleItemIndex
-                            chipsState.animateScrollToItem((first - 3).coerceAtLeast(0))
+            Column(Modifier.fillMaxWidth()) {
+
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalIconButton(
+                        onClick = {
+                            scope.launch {
+                                val first = chipsState.firstVisibleItemIndex
+                                chipsState.animateScrollToItem((first - 3).coerceAtLeast(0))
+                            }
+                        }
+                    ) { Icon(Icons.Outlined.ChevronLeft, contentDescription = "Geri") }
+
+                    LazyRow(
+                        state = chipsState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(quick) { q ->
+                            SuggestionChip(
+                                onClick = { vm.send(q) },
+                                label = { Text(q) }
+                            )
                         }
                     }
-                ) { Icon(Icons.Outlined.ChevronLeft, contentDescription = "Geri") }
 
-                LazyRow(
-                    state = chipsState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(
-                        items = quick,
-                        key = { it.first }
-                    ) { pair ->
-                        val (q, a) = pair
-                        SuggestionChip(
-                            onClick = { sendQuick(q, a) },
-                            label = { Text(q) }
-                        )
-                    }
+                    FilledTonalIconButton(
+                        onClick = {
+                            scope.launch {
+                                val last = chipsState.firstVisibleItemIndex + 5
+                                chipsState.animateScrollToItem(last.coerceAtMost(quick.lastIndex))
+                            }
+                        }
+                    ) { Icon(Icons.Outlined.ChevronRight, contentDescription = "İleri") }
                 }
 
-                FilledTonalIconButton(
-                    onClick = {
-                        scope.launch {
-                            val last = chipsState.firstVisibleItemIndex + 5
-                            chipsState.animateScrollToItem(last.coerceAtMost(quick.lastIndex))
-                        }
-                    }
-                ) { Icon(Icons.Outlined.ChevronRight, contentDescription = "İleri") }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Sorunu yaz…") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
+                                val text = input.trim()
+                                if (text.isNotEmpty()) { vm.send(text); input = "" }
+                            }
+                        )
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(onClick = {
+                        val text = input.trim()
+                        if (text.isNotEmpty()) { vm.send(text); input = "" }
+                    }) { Icon(Icons.Outlined.Send, contentDescription = "Gönder") }
+                }
             }
         }
     ) { pad ->
-        Column(
+        LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(pad)
                 .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
-            ) {
-                items(messages) { m ->
-                    val bg = if (m.fromBot) MaterialTheme.colorScheme.surfaceVariant
-                    else MaterialTheme.colorScheme.primaryContainer
-                    val align = if (m.fromBot) Alignment.Start else Alignment.End
+            items(messages) { m ->
+                val align = if (m.fromMe) Alignment.End else Alignment.Start
+                val bg = if (m.fromMe) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (m.fromMe) Arrangement.End else Arrangement.Start
+                ) {
                     Surface(
                         color = bg,
                         shape = MaterialTheme.shapes.large,
                         tonalElevation = 2.dp,
                         modifier = Modifier
-                            .fillMaxWidth(0.92f)
+                            .fillMaxWidth(0.9f)
                             .wrapContentWidth(align)
                     ) {
-                        Text(m.text, modifier = Modifier.padding(12.dp))
+                        Column(Modifier.padding(12.dp)) {
+                            if (m.isJson) JsonViewer(jsonText = m.text, initiallyExpanded = true)
+                            else Text(m.text)
+                        }
                     }
                 }
-            }
-
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AssistChip(
-                    onClick = onConnectLiveSupport,
-                    label = { Text("Cevap hoşuma gitmedi, canlı desteğe bağla") },
-                    leadingIcon = { Icon(Icons.Outlined.ThumbDown, contentDescription = null) }
-                )
             }
         }
     }
